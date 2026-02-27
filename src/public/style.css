@@ -299,6 +299,10 @@ input:focus {
 }
 
 /* ── Modal ── */
+[hidden] {
+  display: none !important;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
