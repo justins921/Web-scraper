@@ -364,9 +364,34 @@ input:focus {
 }
 
 .modal-body {
+  position: relative;
   flex: 1;
   overflow: auto;
   padding: 1rem 1.25rem;
+}
+
+.btn-copy {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  z-index: 1;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btn-copy:hover {
+  border-color: var(--primary);
+}
+
+.btn-copy.copied {
+  border-color: var(--success);
+  color: var(--success);
 }
 
 #preview-code {

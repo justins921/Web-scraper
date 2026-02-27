@@ -13,6 +13,7 @@ const modalClose = document.getElementById("modal-close");
 const previewCode = document.getElementById("preview-code");
 const previewIframe = document.getElementById("preview-iframe");
 const tabs = document.querySelectorAll(".tab");
+const copyBtn = document.getElementById("copy-btn");
 
 /* ── URL rows ── */
 addUrlBtn.addEventListener("click", () => {
@@ -164,6 +165,7 @@ tabs.forEach((tab) => {
 async function loadTab(tabName) {
   previewCode.hidden = tabName === "rendered";
   previewIframe.hidden = tabName !== "rendered";
+  copyBtn.hidden = tabName === "rendered";
 
   if (tabName === "rendered") {
     previewIframe.src = `/api/results/${currentSlug}/index.html`;
@@ -205,6 +207,38 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !modal.hidden) {
     modal.hidden = true;
     previewIframe.src = "";
+  }
+});
+
+/* ── Copy to clipboard ── */
+copyBtn.addEventListener("click", async () => {
+  const text = previewCode.textContent;
+  if (!text || text === "Loading..." || text === "Failed to load file.") return;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    copyBtn.textContent = "Copied!";
+    copyBtn.classList.add("copied");
+    setTimeout(() => {
+      copyBtn.textContent = "Copy";
+      copyBtn.classList.remove("copied");
+    }, 1500);
+  } catch {
+    // Fallback for older browsers
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+    copyBtn.textContent = "Copied!";
+    copyBtn.classList.add("copied");
+    setTimeout(() => {
+      copyBtn.textContent = "Copy";
+      copyBtn.classList.remove("copied");
+    }, 1500);
   }
 });
 
