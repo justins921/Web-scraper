@@ -1,0 +1,16 @@
+{
+  "name": "web-scraper",
+  "version": "1.0.0",
+  "description": "Scrape websites to extract HTML, CSS, and JS for migration into Flowboard",
+  "main": "src/scraper.js",
+  "bin": {
+    "web-scraper": "./src/cli.js"
+  },
+  "scripts": {
+    "scrape": "node src/cli.js"
+  },
+  "dependencies": {
+    "puppeteer": "^24.2.0",
+    "yargs": "^17.7.2"
+  }
+}
