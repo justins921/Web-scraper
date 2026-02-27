@@ -171,6 +171,95 @@ async function scrapePage(url, outputDir, options = {}) {
     // Clean up excessive blank lines
     html = html.replace(/\n{3,}/g, "\n\n");
 
+    // --- Extract sections ---
+    const sections = await page.evaluate(() => {
+      // Selectors for top-level landmark elements, in document order
+      const selectors = [
+        "header",
+        "nav",
+        "main",
+        "section",
+        "article",
+        "aside",
+        "footer",
+      ];
+
+      // Collect all landmark elements that are direct children of body
+      // or one level deep (e.g. body > div > section)
+      const candidates = [];
+      const seen = new Set();
+
+      for (const sel of selectors) {
+        document.querySelectorAll(sel).forEach((el) => {
+          // Skip deeply nested duplicates — only take elements whose
+          // parent is body, or whose grandparent is body
+          const depth = getDepthFromBody(el);
+          if (depth <= 2 && !seen.has(el)) {
+            seen.add(el);
+            candidates.push(el);
+          }
+        });
+      }
+
+      // If no semantic landmarks found, fall back to direct children of body
+      // that are divs with significant content
+      if (candidates.length === 0) {
+        document.body.querySelectorAll(":scope > div, :scope > section").forEach((el) => {
+          if (el.innerHTML.trim().length > 100 && !seen.has(el)) {
+            seen.add(el);
+            candidates.push(el);
+          }
+        });
+      }
+
+      // Sort by document order
+      candidates.sort((a, b) => {
+        const pos = a.compareDocumentPosition(b);
+        return pos & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+      });
+
+      function getDepthFromBody(el) {
+        let depth = 0;
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+          depth++;
+          node = node.parentElement;
+        }
+        return depth;
+      }
+
+      function labelFor(el, idx) {
+        // Try id, aria-label, class, or tag name
+        if (el.id) return el.id;
+        const aria = el.getAttribute("aria-label");
+        if (aria) return aria.toLowerCase().replace(/\s+/g, "-");
+        // Use tag name + index
+        return `${el.tagName.toLowerCase()}-${idx + 1}`;
+      }
+
+      return candidates.map((el, i) => ({
+        label: labelFor(el, i),
+        tag: el.tagName.toLowerCase(),
+        html: el.outerHTML,
+      }));
+    });
+
+    // Write section files
+    const sectionsDir = path.join(pageDir, "sections");
+    fs.mkdirSync(sectionsDir, { recursive: true });
+
+    const sectionMeta = sections.map((sec, i) => {
+      const filename = `${String(i + 1).padStart(2, "0")}-${sec.label}.html`;
+      fs.writeFileSync(path.join(sectionsDir, filename), sec.html, "utf-8");
+      return {
+        index: i + 1,
+        label: sec.label,
+        tag: sec.tag,
+        file: filename,
+        size: Buffer.byteLength(sec.html),
+      };
+    });
+
     // --- Write files ---
     fs.writeFileSync(path.join(pageDir, "index.html"), html, "utf-8");
     fs.writeFileSync(path.join(pageDir, "styles.css"), combinedCss, "utf-8");
@@ -182,6 +271,8 @@ async function scrapePage(url, outputDir, options = {}) {
       scrapedAt: new Date().toISOString(),
       stylesheetCount: stylesheetHrefs.length,
       scriptCount: jsData.externalSrcs.length,
+      sectionCount: sectionMeta.length,
+      sections: sectionMeta,
       outputDir: pageDir,
     };
     fs.writeFileSync(
@@ -194,6 +285,7 @@ async function scrapePage(url, outputDir, options = {}) {
     console.log(`  - index.html  (${Buffer.byteLength(html)} bytes)`);
     console.log(`  - styles.css  (${Buffer.byteLength(combinedCss)} bytes)`);
     console.log(`  - scripts.js  (${Buffer.byteLength(combinedJs)} bytes)`);
+    console.log(`  - ${sectionMeta.length} sections extracted`);
 
     return { pageDir, meta };
   } finally {

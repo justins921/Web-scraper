@@ -14,6 +14,8 @@ const previewCode = document.getElementById("preview-code");
 const previewIframe = document.getElementById("preview-iframe");
 const tabs = document.querySelectorAll(".tab");
 const copyBtn = document.getElementById("copy-btn");
+const sectionsPanel = document.getElementById("sections-panel");
+const sectionsList = document.getElementById("sections-list");
 
 /* ── URL rows ── */
 addUrlBtn.addEventListener("click", () => {
@@ -163,12 +165,21 @@ tabs.forEach((tab) => {
 });
 
 async function loadTab(tabName) {
-  previewCode.hidden = tabName === "rendered";
-  previewIframe.hidden = tabName !== "rendered";
-  copyBtn.hidden = tabName === "rendered";
+  const isRendered = tabName === "rendered";
+  const isSections = tabName === "sections";
 
-  if (tabName === "rendered") {
+  previewCode.hidden = isRendered || isSections;
+  previewIframe.hidden = !isRendered;
+  sectionsPanel.hidden = !isSections;
+  copyBtn.hidden = isRendered || isSections;
+
+  if (isRendered) {
     previewIframe.src = `/api/results/${currentSlug}/index.html`;
+    return;
+  }
+
+  if (isSections) {
+    loadSections();
     return;
   }
 
@@ -189,6 +200,100 @@ async function loadTab(tabName) {
   } catch {
     previewCode.textContent = "Failed to load file.";
   }
+}
+
+/* ── Sections panel ── */
+let currentSectionsMeta = null;
+
+async function loadSections() {
+  sectionsList.innerHTML = '<p class="muted">Loading sections...</p>';
+
+  try {
+    // Fetch meta.json to get section info
+    if (!previewCache["meta.json"]) {
+      const res = await fetch(`/api/results/${currentSlug}/meta.json`);
+      previewCache["meta.json"] = await res.text();
+    }
+
+    const meta = JSON.parse(previewCache["meta.json"]);
+    currentSectionsMeta = meta.sections || [];
+
+    if (currentSectionsMeta.length === 0) {
+      sectionsList.innerHTML = '<p class="muted">No sections detected on this page.</p>';
+      return;
+    }
+
+    sectionsList.innerHTML = currentSectionsMeta.map((sec) => `
+      <div class="section-card" data-file="${sec.file}">
+        <div class="section-info">
+          <span class="section-label">${escapeHtml(sec.label)}</span>
+          <span class="section-meta">&lt;${sec.tag}&gt; &mdash; ${formatBytes(sec.size)}</span>
+        </div>
+        <div class="section-actions">
+          <button class="btn-sm section-view-btn" data-file="${sec.file}">View</button>
+          <button class="btn-sm section-copy-btn" data-file="${sec.file}">Copy HTML</button>
+        </div>
+      </div>
+    `).join("");
+  } catch {
+    sectionsList.innerHTML = '<p class="muted">Failed to load sections.</p>';
+  }
+}
+
+sectionsList.addEventListener("click", async (e) => {
+  const viewBtn = e.target.closest(".section-view-btn");
+  const copyBtnEl = e.target.closest(".section-copy-btn");
+
+  if (!viewBtn && !copyBtnEl) return;
+
+  const file = (viewBtn || copyBtnEl).dataset.file;
+  const cacheKey = `section:${file}`;
+
+  // Fetch the section HTML if not cached
+  if (!previewCache[cacheKey]) {
+    try {
+      const res = await fetch(`/api/results/${currentSlug}/sections/${file}`);
+      previewCache[cacheKey] = await res.text();
+    } catch {
+      alert("Failed to load section.");
+      return;
+    }
+  }
+
+  const html = previewCache[cacheKey];
+
+  if (viewBtn) {
+    // Switch to showing the code in the preview pane
+    sectionsPanel.hidden = true;
+    previewCode.hidden = false;
+    copyBtn.hidden = false;
+    previewCode.textContent = html;
+  }
+
+  if (copyBtnEl) {
+    try {
+      await navigator.clipboard.writeText(html);
+      copyBtnEl.textContent = "Copied!";
+      setTimeout(() => { copyBtnEl.textContent = "Copy HTML"; }, 1500);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = html;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      copyBtnEl.textContent = "Copied!";
+      setTimeout(() => { copyBtnEl.textContent = "Copy HTML"; }, 1500);
+    }
+  }
+});
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 modalClose.addEventListener("click", () => {

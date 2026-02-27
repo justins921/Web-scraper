@@ -79,10 +79,14 @@
           <button class="tab active" data-tab="html">HTML</button>
           <button class="tab" data-tab="css">CSS</button>
           <button class="tab" data-tab="js">JS</button>
+          <button class="tab" data-tab="sections">Sections</button>
           <button class="tab" data-tab="rendered">Rendered</button>
         </div>
         <div class="modal-body">
           <button class="btn-copy" id="copy-btn" title="Copy to clipboard">Copy</button>
+          <div id="sections-panel" hidden>
+            <div id="sections-list"></div>
+          </div>
           <pre id="preview-code"></pre>
           <iframe id="preview-iframe" hidden></iframe>
         </div>

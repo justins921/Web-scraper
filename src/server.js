@@ -103,6 +103,26 @@ app.get("/api/results/:slug/:file", (req, res) => {
 });
 
 /**
+ * GET /api/results/:slug/sections/:file
+ * Serve a specific section HTML file.
+ */
+app.get("/api/results/:slug/sections/:file", (req, res) => {
+  const { slug, file } = req.params;
+
+  // Only allow .html files from the sections directory
+  if (!file.endsWith(".html")) {
+    return res.status(403).json({ error: "File not allowed." });
+  }
+
+  const filePath = path.join(defaultOutput, slug, "sections", file);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: "Section not found." });
+  }
+
+  res.sendFile(filePath);
+});
+
+/**
  * GET /api/results/:slug/download
  * Download all scraped files as a .tar.gz (streamed via tar).
  * Falls back to zip-like JSON bundle if tar is unavailable.
