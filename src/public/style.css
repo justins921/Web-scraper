@@ -413,6 +413,20 @@ input:focus {
   background: #fff;
 }
 
+.btn-back {
+  display: block;
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 0 0.75rem 0;
+}
+
+.btn-back:hover {
+  color: var(--primary-hover);
+}
+
 /* ── Sections panel ── */
 #sections-panel {
   max-height: 60vh;

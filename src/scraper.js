@@ -173,75 +173,128 @@ async function scrapePage(url, outputDir, options = {}) {
 
     // --- Extract sections ---
     const sections = await page.evaluate(() => {
-      // Selectors for top-level landmark elements, in document order
-      const selectors = [
-        "header",
-        "nav",
-        "main",
-        "section",
-        "article",
-        "aside",
-        "footer",
-      ];
-
-      // Collect all landmark elements that are direct children of body
-      // or one level deep (e.g. body > div > section)
-      const candidates = [];
       const seen = new Set();
+      const results = [];
 
-      for (const sel of selectors) {
-        document.querySelectorAll(sel).forEach((el) => {
-          // Skip deeply nested duplicates — only take elements whose
-          // parent is body, or whose grandparent is body
-          const depth = getDepthFromBody(el);
-          if (depth <= 2 && !seen.has(el)) {
-            seen.add(el);
-            candidates.push(el);
+      // Given a heading, walk up to find the best wrapping container.
+      // Stop when the parent has sibling elements that are also sections
+      // (i.e. siblings with their own headings or semantic tags).
+      function findContainer(heading) {
+        let el = heading;
+        while (el.parentElement && el.parentElement !== document.body) {
+          // If el itself is a semantic section boundary, use it
+          if (["SECTION", "ARTICLE", "ASIDE"].includes(el.tagName)) {
+            return el;
           }
-        });
+
+          const parent = el.parentElement;
+
+          // Skip past thin wrappers (only one visible child)
+          const visibleChildren = Array.from(parent.children).filter(
+            (c) => c.offsetHeight > 0 || c.innerHTML.trim().length > 50
+          );
+          if (visibleChildren.length <= 1) {
+            el = parent;
+            continue;
+          }
+
+          // Parent has multiple visible children — check if siblings
+          // look like other sections (have their own headings or are
+          // semantic elements). If so, el is our section boundary.
+          const siblings = visibleChildren.filter((c) => c !== el);
+          const hasSiblingSections = siblings.some(
+            (s) =>
+              s.querySelector("h1,h2,h3,h4,h5,h6") ||
+              ["SECTION", "ARTICLE", "HEADER", "FOOTER", "NAV"].includes(
+                s.tagName
+              )
+          );
+
+          if (hasSiblingSections) {
+            return el;
+          }
+
+          // Parent is a semantic container — use it
+          if (["SECTION", "ARTICLE", "ASIDE"].includes(parent.tagName)) {
+            return parent;
+          }
+
+          el = parent;
+        }
+        return el;
       }
 
-      // If no semantic landmarks found, fall back to direct children of body
-      // that are divs with significant content
-      if (candidates.length === 0) {
-        document.body.querySelectorAll(":scope > div, :scope > section").forEach((el) => {
-          if (el.innerHTML.trim().length > 100 && !seen.has(el)) {
-            seen.add(el);
-            candidates.push(el);
+      function slugify(text) {
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 60);
+      }
+
+      // 1. Find sections by tracing each heading to its container
+      const headings = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
+      headings.forEach((h) => {
+        const container = findContainer(h);
+        if (container && !seen.has(container)) {
+          seen.add(container);
+          results.push({
+            el: container,
+            headingText: h.textContent.trim(),
+          });
+        }
+      });
+
+      // 2. Add standalone landmark elements that have no headings
+      //    (e.g. a <nav> or <footer> that uses links/icons instead)
+      document
+        .querySelectorAll("header, nav, footer")
+        .forEach((el) => {
+          if (!seen.has(el) && el.innerHTML.trim().length > 50) {
+            // Make sure this element isn't inside an already-found section
+            const isNested = results.some((r) => r.el.contains(el));
+            if (!isNested) {
+              seen.add(el);
+              results.push({ el, headingText: null });
+            }
           }
         });
-      }
+
+      // 3. Remove any section that is an ancestor of another section
+      //    (prefer the more granular children)
+      const filtered = results.filter(
+        (r) => !results.some((other) => other !== r && r.el.contains(other.el))
+      );
 
       // Sort by document order
-      candidates.sort((a, b) => {
-        const pos = a.compareDocumentPosition(b);
+      filtered.sort((a, b) => {
+        const pos = a.el.compareDocumentPosition(b.el);
         return pos & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
       });
 
-      function getDepthFromBody(el) {
-        let depth = 0;
-        let node = el.parentElement;
-        while (node && node !== document.body) {
-          depth++;
-          node = node.parentElement;
+      // Build output
+      return filtered.map((r, i) => {
+        const el = r.el;
+        const headingText = r.headingText || null;
+        let label;
+
+        if (headingText) {
+          label = slugify(headingText);
+        } else if (el.id) {
+          label = el.id;
+        } else if (el.getAttribute("aria-label")) {
+          label = slugify(el.getAttribute("aria-label"));
+        } else {
+          label = `${el.tagName.toLowerCase()}-${i + 1}`;
         }
-        return depth;
-      }
 
-      function labelFor(el, idx) {
-        // Try id, aria-label, class, or tag name
-        if (el.id) return el.id;
-        const aria = el.getAttribute("aria-label");
-        if (aria) return aria.toLowerCase().replace(/\s+/g, "-");
-        // Use tag name + index
-        return `${el.tagName.toLowerCase()}-${idx + 1}`;
-      }
-
-      return candidates.map((el, i) => ({
-        label: labelFor(el, i),
-        tag: el.tagName.toLowerCase(),
-        html: el.outerHTML,
-      }));
+        return {
+          label,
+          tag: el.tagName.toLowerCase(),
+          headingText,
+          html: el.outerHTML,
+        };
+      });
     });
 
     // Write section files
@@ -255,6 +308,7 @@ async function scrapePage(url, outputDir, options = {}) {
         index: i + 1,
         label: sec.label,
         tag: sec.tag,
+        headingText: sec.headingText || null,
         file: filename,
         size: Buffer.byteLength(sec.html),
       };

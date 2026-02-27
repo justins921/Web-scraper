@@ -16,6 +16,7 @@ const tabs = document.querySelectorAll(".tab");
 const copyBtn = document.getElementById("copy-btn");
 const sectionsPanel = document.getElementById("sections-panel");
 const sectionsList = document.getElementById("sections-list");
+const backToSectionsBtn = document.getElementById("back-to-sections");
 
 /* ── URL rows ── */
 addUrlBtn.addEventListener("click", () => {
@@ -172,6 +173,7 @@ async function loadTab(tabName) {
   previewIframe.hidden = !isRendered;
   sectionsPanel.hidden = !isSections;
   copyBtn.hidden = isRendered || isSections;
+  backToSectionsBtn.hidden = true;
 
   if (isRendered) {
     previewIframe.src = `/api/results/${currentSlug}/index.html`;
@@ -226,7 +228,7 @@ async function loadSections() {
     sectionsList.innerHTML = currentSectionsMeta.map((sec) => `
       <div class="section-card" data-file="${sec.file}">
         <div class="section-info">
-          <span class="section-label">${escapeHtml(sec.label)}</span>
+          <span class="section-label">${escapeHtml(sec.headingText || sec.label)}</span>
           <span class="section-meta">&lt;${sec.tag}&gt; &mdash; ${formatBytes(sec.size)}</span>
         </div>
         <div class="section-actions">
@@ -267,6 +269,7 @@ sectionsList.addEventListener("click", async (e) => {
     sectionsPanel.hidden = true;
     previewCode.hidden = false;
     copyBtn.hidden = false;
+    backToSectionsBtn.hidden = false;
     previewCode.textContent = html;
   }
 
@@ -295,6 +298,13 @@ function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
+
+backToSectionsBtn.addEventListener("click", () => {
+  backToSectionsBtn.hidden = true;
+  previewCode.hidden = true;
+  copyBtn.hidden = true;
+  sectionsPanel.hidden = false;
+});
 
 modalClose.addEventListener("click", () => {
   modal.hidden = true;
