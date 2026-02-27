@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Scraper</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Web Scraper</h1>
+    <p class="subtitle">Extract HTML, CSS &amp; JS from any website</p>
+  </header>
+
+  <main>
+    <!-- Scrape form -->
+    <section class="card" id="scrape-section">
+      <h2>Scrape a Website</h2>
+
+      <form id="scrape-form">
+        <div id="url-fields">
+          <div class="url-row">
+            <input
+              type="url"
+              name="url"
+              placeholder="https://example.com"
+              required
+            />
+            <button type="button" class="btn-icon remove-url" title="Remove" hidden>&times;</button>
+          </div>
+        </div>
+
+        <button type="button" class="btn-link" id="add-url">+ Add another URL</button>
+
+        <details class="options">
+          <summary>Options</summary>
+          <div class="options-grid">
+            <label>
+              <input type="checkbox" id="opt-keep" />
+              Keep styles/scripts inline
+            </label>
+            <label>
+              Timeout (ms)
+              <input type="number" id="opt-timeout" value="30000" min="1000" step="1000" />
+            </label>
+          </div>
+        </details>
+
+        <button type="submit" class="btn-primary" id="scrape-btn">
+          Scrape
+        </button>
+      </form>
+
+      <!-- Progress -->
+      <div id="progress" hidden>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p id="progress-text">Scraping...</p>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section class="card" id="results-section">
+      <h2>Scraped Sites</h2>
+      <div id="results-list">
+        <p class="muted">No sites scraped yet.</p>
+      </div>
+    </section>
+
+    <!-- Preview modal -->
+    <div class="modal-backdrop" id="modal" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modal-title">Preview</h3>
+          <button class="btn-icon" id="modal-close">&times;</button>
+        </div>
+        <div class="modal-tabs">
+          <button class="tab active" data-tab="html">HTML</button>
+          <button class="tab" data-tab="css">CSS</button>
+          <button class="tab" data-tab="js">JS</button>
+          <button class="tab" data-tab="rendered">Rendered</button>
+        </div>
+        <div class="modal-body">
+          <pre id="preview-code"></pre>
+          <iframe id="preview-iframe" hidden></iframe>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

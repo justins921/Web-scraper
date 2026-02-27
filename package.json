@@ -7,9 +7,11 @@
     "web-scraper": "./src/cli.js"
   },
   "scripts": {
-    "scrape": "node src/cli.js"
+    "scrape": "node src/cli.js",
+    "gui": "node src/server.js"
   },
   "dependencies": {
+    "express": "^5.2.1",
     "puppeteer": "^24.2.0",
     "yargs": "^17.7.2"
   }
